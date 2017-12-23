@@ -1,0 +1,37 @@
+Ubuntu
+升级内核
+sudo apt-get install -y --install-recommends linux-generic-lts-xenial
+安装
+curl -sSL https://get.daocloud.io/docker | sh
+或
+curl -sSL http://acs-public-mirror.oss-cn-hangzhou.aliyuncs.com/docker-engine/internet | sh -
+
+手动安装
+apt-get install linux-image-extra-$(uname -r) linux-image-extra-virtual
+apt-get install docker-engine
+
+启动docker
+ubuntu 14.04 命令
+service docker start
+Ubuntu 16.04 命令
+systemctl enable docker
+systemctl start docker
+
+
+添加用户
+groupadd docker
+usermod -aG docker $USER
+
+
+
+Docker镜像加速器
+14.04
+在Docker配置文件/etc/default/docker添加如下字段并重启服务
+DOCKER_OPTS="--registry-mirror=https://jxus37ad.mirror.aliyuncs.com"
+service docker restart
+
+16.04
+在Docker配置文件/etc/systemd/system/multi-user.target.wants/docker.service 文件添加如下字段并重启服务
+ExecStart=/usr/bin/dockerd --registry-mirror=https://jxus37ad.mirror.aliyuncs.com
+systemctl daemon-reload
+systemctl restart docker

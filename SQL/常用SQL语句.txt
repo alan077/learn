@@ -1,0 +1,67 @@
+DDL语句
+    DDL语句用于创建数据库对象，如表、视图、索引等
+ALTER   DATABASE    修改一个数据库或与该数据关联的文件和文件组
+ALTER   FUNCTION    更改用户定义函数
+ALTER   LOGIN       更改Windows或数据库服务器登录账户的属性
+ALTER   PROCEDURE   修改存储过程
+ALTER   SCHEMA      更改架构所有者
+ALTER   TABLE       通过修改、添加或删除列和约束来修改表定义
+ALTER   TRIGGER     更改DML或DDL触发器的定义
+ALTER   VIEW        修改先前创建的试图
+CREATE  DATABASE    创建数据库和用来存储数据库的文件
+CREATE  FUNCTION    创建用户定义函数
+CREATE  INDEX       为指定表或视图创建关系引擎，或为指定表创建XML索引
+CREATE  LOGIN       创建新的Windows或数据库服务器登录账户
+CREATE  PROCEDURE   创建存储过程
+CREATE  RULE        创建规则对象
+CREATE  SCHEMA      在当前数据库照片你改创建架构
+CREATE  TABLE       创建新表
+CREATE  TRIGGER     创建DML或DDL触发器
+CREATE  VIEW        创建一个虚拟表(视图)，该表以一种备用方式提供一个或多个表中的数据
+DROP    DATABASE    从数据库服务器实例中删除一个或多个数据库或数据库快照
+DROP    FUNCTION    从当前数据库中删除一个或多个用户定义函数
+DROP    INDEX       从当前数据中删除索引
+DROP    LOGIN       删除Windwos或数据库服务器登录账户
+DROP    RULE        从当前数据中删除一个或多个用户定义的规则
+DROP    SCHEMA      从当前数据库中删除架构
+DROP    TABLE       删除表的表定义和所有数据、索引、约束和权限范围
+DROP    TRIGGER     从当前数据库中删除一个或多个DML或DDL触发器
+DROP    VIEW        从当前数据库中删除一个或多个试图
+
+DML语句
+    DML语句用来检索和修改数据库的内容
+BEGIN TRANSACTION   显示开始一个本地事务
+CLOSE               释放当前结果集，然后解除定位游标的行上的游标锁定，从而关闭一个开放的游标
+COMMIT              结束事务成功并提交
+DELETE              从表或视图中删除行
+INSERT              添加新行到表或视图中
+READTEXT            从text、ntext或image列读取text、ntext或image值，从指定的偏移量开始读取指定的字节数
+ROLLBACK            回滚事务
+SAVE TRANSACTION    在事务内设置保存点
+SELECT              从数据库中检索行，并允许从一个或多个表中选择一个或多个行或列
+TRUNCATE TABLE      删除表中的所有行，而不记录单个行删除操作
+UPTAE               更改表或视图中的现有数据
+UPTAETEXT           更新text、ntext或image字段。使用UPDATETEXT可以只更新text、ntext或image列的一部分
+
+编程和流控制语句
+BEGIN...END         中间可以包含一系列SQL语句，从而提供执行一组SQL语句的能力
+BREAK               退出WHLIE或IF...ELSE语句中最里面的循环。执行出现在END关键字后面的任何语句，END关键字为循环结束标记
+EXECUTE             执行批中的命令字符串、字符串，已经执行系统存储过程、用户定义存储过程、标量值用户定义函数或扩展存储过程
+FETCH               通过服务器游标检索特定行
+GOTO                将执行流更改到标签处
+CONTINUE            在CONTINUE关键字之后的任何语句都将被忽略，并继续执行WHILE循环
+DEALLOCATE          删除游标引用
+DECLARE @local_variable 声明变量。变量名称必须使用@前缀
+DECLARE CURSOR      定义服务器游标的属性，如游标的滚动行为和用于生成游标操作的结果集的查询
+IF...ELSE           指定语句的执行条件
+OPEN                打开服务器游标。然后通过执行在DECLARE CURSOR 或SET cursor_variable语句中指定的SLQ语句填充游标
+PRINT               向客户端返回用户定义消息
+RAISERROR           生成错误消息并启动会话的错误处理
+RETURN              从查询或过程中无条件退出
+SET @local_variable 将先前使用DECLARE @local_variable语句创建的局部变量设置为指定值
+SELECT @local_variable 将先前使用DECLARE @local_variable语句创建的局部变量设置为表达式
+WAITFOR             在到达指定时间或时间间隔之前，组织执行批处理、存储过程或事务
+WHILE               设置重复执行SQL语句或语句块的条件。
+
+
+

@@ -1,0 +1,51 @@
+redis性能监控工具redislive
+http://www.nkrode.com/article/real-time-dashboard-for-redis
+
+安装依赖环境
+pip install tornado
+pip install redis
+pip install python-dateutil
+
+You'll also need argparse if you're running Python < 2.7:
+
+pip install argparse
+
+下载源码
+wget https://codeload.github.com/nkrode/RedisLive/legacy.zip/master
+并解压
+unzip master
+进入src目录下找到redis-live.conf.example，改名成redis-live.conf
+mv mv redis-live.conf.example  redis-live.conf
+vim redis-live.conf
+并修改配置文件
+
+{
+        "RedisServers":
+        [
+
+                {
+                        "server": "127.0.0.1",
+                        "port" : 6379,
+                        "password" : "lcb@redis.com"
+                }
+        ],
+
+        "DataStoreType" : "redis",
+
+        "RedisStatsServer":
+        {
+                "server" : "127.0.0.1",
+                "port" : 6379,
+                "password" : "lcb@redis.com"
+        },
+
+        "SqliteStatsStore" :
+        {
+                "path":  "db/redislive.sqlite"
+        }
+}
+
+
+./redis-monitor.py --duration=120
+./redis-live.py
+http://localhost:8888/index.html

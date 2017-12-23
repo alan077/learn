@@ -1,0 +1,25 @@
+date time s-sitename s-computername s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs-version cs(User-Agent) cs(Cookie) cs(Referer) cs-host sc-status sc-substatus sc-win32-status sc-bytes cs-bytes time-taken
+日期
+时间
+服务名称
+服务器名称
+服务器IP地址
+方法
+URI资源
+URI查询
+服务器端口
+用户名
+客户端IP
+协议版本
+用户代理
+Cookie
+引用网站
+主机
+协议状态
+协议子状态
+win32状态
+发送字节数
+接收字节数
+所用时间
+
+

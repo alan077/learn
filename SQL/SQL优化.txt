@@ -1,0 +1,567 @@
+优化步骤:
+    1、分析实例级别的等待
+    2、关联等待和队列
+    3、确定方案
+    4、细化到数据库/文件级
+    5、细化到进程级
+    6、优化索引/查询
+创建数据库    
+    SET NOCOUNT ON;
+    USE master;
+    IF DB_ID('Performance') IS NULL
+      CREATE DATABASE Performance;
+    GO
+    USE Performance;
+    GO
+分析实例级别的等待
+    返回系统中的等待信息，并按类型排序
+        SELECT
+          wait_type,
+          waiting_tasks_count,
+          wait_time_ms,
+          max_wait_time_ms,
+          signal_wait_time_ms
+        FROM sys.dm_os_wait_stats
+        ORDER BY wait_type;
+分离重量级的等待
+    分离出累积总和达到系统总等待时间80%的等待类型，而且至少要返回按等待时间排名前5位的的等待
+        WITH Waits AS
+        (
+          SELECT
+            wait_type,
+            wait_time_ms / 1000. AS wait_time_s,
+            100. * wait_time_ms / SUM(wait_time_ms) OVER() AS pct,
+            ROW_NUMBER() OVER(ORDER BY wait_time_ms DESC) AS rn,
+            100. * signal_wait_time_ms / wait_time_ms as signal_pct
+          FROM sys.dm_os_wait_stats
+          WHERE wait_time_ms > 0
+            AND wait_type NOT LIKE N'%SLEEP%'
+            AND wait_type NOT LIKE N'%IDLE%'
+            AND wait_type NOT LIKE N'%QUEUE%'    
+            AND wait_type NOT IN(  N'CLR_AUTO_EVENT'
+                                 , N'REQUEST_FOR_DEADLOCK_SEARCH'
+                                 , N'SQLTRACE_BUFFER_FLUSH'
+                                 /* filter out additional irrelevant waits */ )
+        )
+        SELECT
+          W1.wait_type, 
+          CAST(W1.wait_time_s AS NUMERIC(12, 2)) AS wait_time_s,
+          CAST(W1.pct AS NUMERIC(5, 2)) AS pct,
+          CAST(SUM(W2.pct) AS NUMERIC(5, 2)) AS running_pct,
+          CAST(W1.signal_pct AS NUMERIC(5, 2)) AS signal_pct
+        FROM Waits AS W1
+          JOIN Waits AS W2
+            ON W2.rn <= W1.rn
+        GROUP BY W1.rn, W1.wait_type, W1.wait_time_s, W1.pct, W1.signal_pct
+        HAVING SUM(W2.pct) - W1.pct < 80 -- percentage threshold
+            OR W1.rn <= 5
+        ORDER BY W1.rn;
+        GO
+        
+收集等待信息
+    把等待信息收集到一个表中，然后定时更新
+    -- Create the WaitStats table
+        USE Performance;
+        IF OBJECT_ID('dbo.WaitStats', 'U') IS NOT NULL DROP TABLE dbo.WaitStats;
+
+        CREATE TABLE dbo.WaitStats
+        (
+          dt                  DATETIME     NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+          wait_type           NVARCHAR(60) NOT NULL,
+          waiting_tasks_count BIGINT       NOT NULL,
+          wait_time_ms        BIGINT       NOT NULL,
+          max_wait_time_ms    BIGINT       NOT NULL,
+          signal_wait_time_ms BIGINT       NOT NULL
+        );
+
+        CREATE UNIQUE CLUSTERED INDEX idx_dt_type ON dbo.WaitStats(dt, wait_type);
+        CREATE INDEX idx_type_dt ON dbo.WaitStats(wait_type, dt);
+    定义一个按固定时间间隔运行的任务，并使用以下代码从DMV加载当前的数据
+    INSERT INTO Performance.dbo.WaitStats
+        (wait_type, waiting_tasks_count, wait_time_ms,
+         max_wait_time_ms, signal_wait_time_ms)
+      SELECT
+        wait_type, waiting_tasks_count, wait_time_ms,
+        max_wait_time_ms, signal_wait_time_ms
+      FROM sys.dm_os_wait_stats
+      WHERE wait_type NOT IN (N'MISCELLANEOUS');
+    新建一个IntervalWaits函数，用于实现处理逻辑。
+    联接条件是每一个当前行要匹配相同等待类型的前一个间隔的行。然后从当前数据中减去前一个间隔的累积等待时间，就得到当前间隔内的等待时间
+        IF OBJECT_ID('dbo.IntervalWaits', 'IF') IS NOT NULL
+          DROP FUNCTION dbo.IntervalWaits;
+        GO
+
+        CREATE FUNCTION dbo.IntervalWaits
+          (@fromdt AS DATETIME, @todt AS DATETIME)
+        RETURNS TABLE
+        AS
+
+        RETURN
+          WITH Waits AS
+          (
+            SELECT dt, wait_type, wait_time_ms,
+              ROW_NUMBER() OVER(PARTITION BY wait_type
+                                ORDER BY dt) AS rn
+            FROM dbo.WaitStats
+          )
+          SELECT Prv.wait_type, Prv.dt AS start_time,
+            CAST((Cur.wait_time_ms - Prv.wait_time_ms)
+                   / 1000. AS NUMERIC(12, 2)) AS interval_wait_s
+          FROM Waits AS Cur
+            JOIN Waits AS Prv
+              ON Cur.wait_type = Prv.wait_type
+              AND Cur.rn = Prv.rn + 1
+              AND Prv.dt >= @fromdt
+              AND Prv.dt < DATEADD(day, 1, @todt)
+        GO
+    该函数以要分析的日期边界作为参数
+    -- Return interval waits
+        SELECT wait_type, start_time, interval_wait_s
+        FROM dbo.IntervalWaits('20090212', '20090213') AS F
+        ORDER BY SUM(interval_wait_s) OVER(PARTITION BY wait_type) DESC,
+          wait_type, start_time;
+        GO
+    创建视图进行分析
+    -- Prepare view for pivot table
+        IF OBJECT_ID('dbo.IntervalWaitsSample', 'V') IS NOT NULL
+        DROP VIEW dbo.IntervalWaitsSample;
+        GO
+
+        CREATE VIEW dbo.IntervalWaitsSample
+        AS
+
+        SELECT wait_type, start_time, interval_wait_s
+        FROM dbo.IntervalWaits('20090212', '20090213') AS F;
+        GO
+关联等待和队列
+    计数器数据查询
+    SELECT
+    object_name,
+    counter_name,
+    instance_name,
+    cntr_value,
+    cntr_type
+    FROM sys.dm_os_performance_counters;
+细化到数据库/文件级
+    查询数据库以及其中的那类文件(数据/日志)导致系统的大部分I/O及I/O等待。数据库名称、文件类型、以兆字节为单位的总I/O(读与写)，以秒为单位的I/O等待时间。每个I/O等待时间占系统总等待时间的百分比、以及按I/O等待时间排序的行号
+        WITH DBIO AS
+        (
+          SELECT
+            DB_NAME(IVFS.database_id) AS db,
+            MF.type_desc,
+            SUM(IVFS.num_of_bytes_read + IVFS.num_of_bytes_written) AS io_bytes,
+            SUM(IVFS.io_stall) AS io_stall_ms
+          FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS IVFS
+            JOIN sys.master_files AS MF
+              ON IVFS.database_id = MF.database_id
+              AND IVFS.file_id = MF.file_id
+          GROUP BY DB_NAME(IVFS.database_id), MF.type_desc
+        )
+        SELECT db, type_desc, 
+          CAST(1. * io_bytes / (1024 * 1024) AS NUMERIC(12, 2)) AS io_mb,
+          CAST(io_stall_ms / 1000. AS NUMERIC(12, 2)) AS io_stall_s,
+          CAST(100. * io_stall_ms / SUM(io_stall_ms) OVER()
+               AS NUMERIC(10, 2)) AS io_stall_pct,
+          ROW_NUMBER() OVER(ORDER BY io_stall_ms DESC) AS rn
+        FROM DBIO
+        ORDER BY io_stall_ms DESC;
+细化到进程级
+    追踪性能中减弱性能影响：
+        1、不要使用SLQ Server Profiler GUI进行追踪，而是应该使用T-SQL代码来定义追踪。使用Profiler跟踪时，实际会有两个跟踪：一个把输出写入目标文件，另一个把跟踪信息写入Profiler的客户端。可以先使用Profiler以图形化方式定义跟踪，再使用菜单项，根据定义好的跟踪生成T-SQL代码。然后再根据需要对代码稍作修改
+        2、不要把跟踪数据直接写到表，这样会严重影响性能。把跟踪数据写到磁盘文件是最快的选择。之后可以把跟踪数据加载到表中再进行分析，加载时可以使用fn-trace-gettable函数，用BULK批操作(如select into语句)
+        3、跟踪会才产生大量的数量和额外的I/O操作。不要把目标跟踪文件放到包含数据库文件的磁盘上。
+        4、慎重选择事件类和数据列，只跟踪需要的信息，移除所有默认的和不必要的对象
+        5、使用跟踪筛选功能，只选择相关的事件
+    定义追踪，生成T-SQL代码。它定义了一个跟踪，用指定的数据库ID作为筛选器，并把指定的文件作为跟踪数据的目标文件。它启动跟踪，通过输出参数来返回最新生成的跟踪ID
+        SET NOCOUNT ON;
+        USE master;
+        GO
+
+        IF OBJECT_ID('dbo.PerfworkloadTraceStart', 'P') IS NOT NULL
+          DROP PROC dbo.PerfworkloadTraceStart;
+        GO
+
+        CREATE PROC dbo.PerfworkloadTraceStart
+          @dbid      AS INT,
+          @tracefile AS NVARCHAR(245),
+          @traceid   AS INT OUTPUT
+        AS
+
+        -- Create a Queue
+        DECLARE @rc          AS INT;
+        DECLARE @maxfilesize AS BIGINT;
+
+        SET @maxfilesize = 5;
+
+        EXEC @rc = sp_trace_create @traceid OUTPUT, 0, @tracefile, @maxfilesize, NULL 
+        IF (@rc != 0) GOTO error;
+
+        -- Set the events
+        DECLARE @on AS BIT;
+        SET @on = 1;
+
+        -- RPC:Completed
+        exec sp_trace_setevent @traceid, 10, 15, @on;
+        exec sp_trace_setevent @traceid, 10, 8, @on;
+        exec sp_trace_setevent @traceid, 10, 16, @on;
+        exec sp_trace_setevent @traceid, 10, 48, @on;
+        exec sp_trace_setevent @traceid, 10, 1, @on;
+        exec sp_trace_setevent @traceid, 10, 17, @on;
+        exec sp_trace_setevent @traceid, 10, 10, @on;
+        exec sp_trace_setevent @traceid, 10, 18, @on;
+        exec sp_trace_setevent @traceid, 10, 11, @on;
+        exec sp_trace_setevent @traceid, 10, 12, @on;
+        exec sp_trace_setevent @traceid, 10, 13, @on;
+        exec sp_trace_setevent @traceid, 10, 6, @on;
+        exec sp_trace_setevent @traceid, 10, 14, @on;
+
+        -- SP:Completed
+        exec sp_trace_setevent @traceid, 43, 15, @on;
+        exec sp_trace_setevent @traceid, 43, 8, @on;
+        exec sp_trace_setevent @traceid, 43, 48, @on;
+        exec sp_trace_setevent @traceid, 43, 1, @on;
+        exec sp_trace_setevent @traceid, 43, 10, @on;
+        exec sp_trace_setevent @traceid, 43, 11, @on;
+        exec sp_trace_setevent @traceid, 43, 12, @on;
+        exec sp_trace_setevent @traceid, 43, 13, @on;
+        exec sp_trace_setevent @traceid, 43, 6, @on;
+        exec sp_trace_setevent @traceid, 43, 14, @on;
+
+        -- SP:StmtCompleted
+        exec sp_trace_setevent @traceid, 45, 8, @on;
+        exec sp_trace_setevent @traceid, 45, 16, @on;
+        exec sp_trace_setevent @traceid, 45, 48, @on;
+        exec sp_trace_setevent @traceid, 45, 1, @on;
+        exec sp_trace_setevent @traceid, 45, 17, @on;
+        exec sp_trace_setevent @traceid, 45, 10, @on;
+        exec sp_trace_setevent @traceid, 45, 18, @on;
+        exec sp_trace_setevent @traceid, 45, 11, @on;
+        exec sp_trace_setevent @traceid, 45, 12, @on;
+        exec sp_trace_setevent @traceid, 45, 13, @on;
+        exec sp_trace_setevent @traceid, 45, 6, @on;
+        exec sp_trace_setevent @traceid, 45, 14, @on;
+        exec sp_trace_setevent @traceid, 45, 15, @on;
+
+        -- SQL:BatchCompleted
+        exec sp_trace_setevent @traceid, 12, 15, @on;
+        exec sp_trace_setevent @traceid, 12, 8, @on;
+        exec sp_trace_setevent @traceid, 12, 16, @on;
+        exec sp_trace_setevent @traceid, 12, 48, @on;
+        exec sp_trace_setevent @traceid, 12, 1, @on;
+        exec sp_trace_setevent @traceid, 12, 17, @on;
+        exec sp_trace_setevent @traceid, 12, 6, @on;
+        exec sp_trace_setevent @traceid, 12, 10, @on;
+        exec sp_trace_setevent @traceid, 12, 14, @on;
+        exec sp_trace_setevent @traceid, 12, 18, @on;
+        exec sp_trace_setevent @traceid, 12, 11, @on;
+        exec sp_trace_setevent @traceid, 12, 12, @on;
+        exec sp_trace_setevent @traceid, 12, 13, @on;
+
+        -- SQL:StmtCompleted
+        exec sp_trace_setevent @traceid, 41, 15, @on;
+        exec sp_trace_setevent @traceid, 41, 8, @on;
+        exec sp_trace_setevent @traceid, 41, 16, @on;
+        exec sp_trace_setevent @traceid, 41, 48, @on;
+        exec sp_trace_setevent @traceid, 41, 1, @on;
+        exec sp_trace_setevent @traceid, 41, 17, @on;
+        exec sp_trace_setevent @traceid, 41, 10, @on;
+        exec sp_trace_setevent @traceid, 41, 18, @on;
+        exec sp_trace_setevent @traceid, 41, 11, @on;
+        exec sp_trace_setevent @traceid, 41, 12, @on;
+        exec sp_trace_setevent @traceid, 41, 13, @on;
+        exec sp_trace_setevent @traceid, 41, 6, @on;
+        exec sp_trace_setevent @traceid, 41, 14, @on;
+
+        -- Set the Filters
+
+        -- Application name filter
+        EXEC sp_trace_setfilter @traceid, 10, 0, 7, N'SQL Server Profiler%';
+        -- Database ID filter
+        EXEC sp_trace_setfilter @traceid, 3, 0, 0, @dbid;
+
+        -- Set the trace status to start
+        EXEC sp_trace_setstatus @traceid, 1;
+
+        -- Print trace id and file name for future references
+        PRINT 'Trace ID: ' + CAST(@traceid AS VARCHAR(10))
+          + ', Trace File: ''' + @tracefile + '.trc''';
+
+        GOTO finish;
+
+        error: 
+        PRINT 'Error Code: ' + CAST(@rc AS VARCHAR(10));
+
+        finish: 
+        GO
+    执行以下代码以启动跟踪
+        DECLARE @dbid AS INT, @traceid AS INT;
+        SET @dbid = DB_ID('Performance');
+
+        EXEC master.dbo.PerfworkloadTraceStart
+          @dbid      = @dbid,
+          @tracefile = 'c:\temp\Perfworkload 20090212',
+          @traceid   = @traceid OUTPUT;
+        GO
+    停止追踪
+        -- Stop the trace (assuming trace id was 2)
+        EXEC sp_trace_setstatus 2, 0;
+        EXEC sp_trace_setstatus 2, 2;
+        GO    
+    将追踪到的文件加载到Worlkload表
+        SET NOCOUNT ON;
+        USE Performance;
+        IF OBJECT_ID('dbo.Workload', 'U') IS NOT NULL DROP TABLE dbo.Workload;
+        GO
+
+        SELECT CAST(TextData AS NVARCHAR(MAX)) AS tsql_code,
+          Duration AS duration
+        INTO dbo.Workload
+        FROM sys.fn_trace_gettable('c:\temp\Perfworkload 20090212.trc', NULL) AS T
+        WHERE Duration > 0
+          AND EventClass IN(41, 45);
+        GO
+    按照查询或T-SQL语句，对它们的性能信息进行聚合，以找出多次调用每个查询所产生的总体影响
+        SELECT
+        tsql_code,
+        SUM(duration) AS total_duration
+        FROM dbo.Workload
+        GROUP BY tsql_code;
+    按查询字符串的前100个字符对跟踪数据进行聚合，生成输出
+        SELECT
+        SUBSTRING(tsql_code, 1, 100) AS tsql_code,
+        SUM(duration) AS total_duration
+        FROM dbo.Workload
+        GROUP BY SUBSTRING(tsql_code, 1, 100);
+    查询模板
+        -- Query template
+        DECLARE @my_templatetext AS NVARCHAR(MAX);
+        DECLARE @my_parameters   AS NVARCHAR(MAX);
+
+        EXEC sp_get_query_template 
+          N'SELECT * FROM dbo.T1 WHERE col1 = 3 AND col2 > 78',
+          @my_templatetext OUTPUT,
+          @my_parameters OUTPUT;
+
+        SELECT @my_templatetext AS querysig, @my_parameters AS params;
+        GO
+
+        -- Creation Script for the SQLSig UDF
+        IF OBJECT_ID('dbo.SQLSig', 'FN') IS NOT NULL
+          DROP FUNCTION dbo.SQLSig;
+        GO
+
+        CREATE FUNCTION dbo.SQLSig 
+          (@p1 NTEXT, @parselength INT = 4000)
+        RETURNS NVARCHAR(4000)
+    对包含跟踪数据的表调用函数，进行查询字符串。    
+        AS
+        BEGIN 
+          DECLARE @pos AS INT;
+          DECLARE @mode AS CHAR(10);
+          DECLARE @maxlength AS INT;
+          DECLARE @p2 AS NCHAR(4000);
+          DECLARE @currchar AS CHAR(1), @nextchar AS CHAR(1);
+          DECLARE @p2len AS INT;
+
+          SET @maxlength = LEN(RTRIM(SUBSTRING(@p1,1,4000)));
+          SET @maxlength = CASE WHEN @maxlength > @parselength 
+                             THEN @parselength ELSE @maxlength END;
+          SET @pos = 1;
+          SET @p2 = '';
+          SET @p2len = 0;
+          SET @currchar = '';
+          set @nextchar = '';
+          SET @mode = 'command';
+
+          WHILE (@pos <= @maxlength)
+          BEGIN
+            SET @currchar = SUBSTRING(@p1,@pos,1);
+            SET @nextchar = SUBSTRING(@p1,@pos+1,1);
+            IF @mode = 'command'
+            BEGIN
+              SET @p2 = LEFT(@p2,@p2len) + @currchar;
+              SET @p2len = @p2len + 1 ;
+              IF @currchar IN (',','(',' ','=','<','>','!')
+                AND @nextchar BETWEEN '0' AND '9'
+              BEGIN
+                SET @mode = 'number';
+                SET @p2 = LEFT(@p2,@p2len) + '#';
+                SET @p2len = @p2len + 1;
+              END 
+              IF @currchar = ''''
+              BEGIN
+                SET @mode = 'literal';
+                SET @p2 = LEFT(@p2,@p2len) + '#''';
+                SET @p2len = @p2len + 2;
+              END
+            END
+            ELSE IF @mode = 'number' AND @nextchar IN (',',')',' ','=','<','>','!')
+              SET @mode= 'command';
+            ELSE IF @mode = 'literal' AND @currchar = ''''
+              SET @mode= 'command';
+
+            SET @pos = @pos + 1;
+          END
+          RETURN @p2;
+        END
+        GO
+    该函数能在输入一个查询字符串返回查询的查询签名
+    -- Test SQLSig Function
+        SELECT dbo.SQLSig
+          (N'SELECT * FROM dbo.T1 WHERE col1 = 3 AND col2 > 78', 4000);
+        GO
+    将每个签名校验和总运行时间，包括它占总运行时间的百分比、以及按运行时间降序排序的行号，保存到临时表#AggQueries中
+    -- Load aggregate data into temporary table
+        IF OBJECT_ID('tempdb..#AggQueries', 'U') IS NOT NULL DROP TABLE #AggQueries;
+
+        SELECT cs, SUM(duration) AS total_duration,
+          100. * SUM(duration) / SUM(SUM(duration)) OVER() AS pct,
+          ROW_NUMBER() OVER(ORDER BY SUM(duration) DESC) AS rn
+        INTO #AggQueries
+        FROM dbo.Workload
+        GROUP BY cs;
+
+        CREATE CLUSTERED INDEX idx_cl_cs ON #AggQueries(cs);
+        GO
+    按百分比查询
+    -- Show running totals
+        SELECT AQ1.cs,
+          CAST(AQ1.total_duration / 1000000.
+            AS NUMERIC(12, 2)) AS total_s, 
+          CAST(SUM(AQ2.total_duration) / 1000000.
+            AS NUMERIC(12, 2)) AS running_total_s, 
+          CAST(AQ1.pct AS NUMERIC(12, 2)) AS pct, 
+          CAST(SUM(AQ2.pct) AS NUMERIC(12, 2)) AS run_pct, 
+          AQ1.rn
+        FROM #AggQueries AS AQ1
+          JOIN #AggQueries AS AQ2
+            ON AQ2.rn <= AQ1.rn
+        GROUP BY AQ1.cs, AQ1.total_duration, AQ1.pct, AQ1.rn
+        HAVING SUM(AQ2.pct) - AQ1.pct <= 80 -- percentage threshold
+        --  OR AQ1.rn <= 5
+        ORDER BY AQ1.rn;
+    对查询返回的结果表和Workload表进行联接
+    -- Isolate top offenders
+        WITH RunningTotals AS
+        (
+          SELECT AQ1.cs,
+            CAST(AQ1.total_duration / 1000000.
+              AS NUMERIC(12, 2)) AS total_s, 
+            CAST(SUM(AQ2.total_duration) / 1000000.
+              AS NUMERIC(12, 2)) AS running_total_s, 
+            CAST(AQ1.pct AS NUMERIC(12, 2)) AS pct, 
+            CAST(SUM(AQ2.pct) AS NUMERIC(12, 2)) AS run_pct, 
+            AQ1.rn
+          FROM #AggQueries AS AQ1
+            JOIN #AggQueries AS AQ2
+              ON AQ2.rn <= AQ1.rn
+          GROUP BY AQ1.cs, AQ1.total_duration, AQ1.pct, AQ1.rn
+          HAVING SUM(AQ2.pct) - AQ1.pct <= 80 -- percentage threshold
+        --  OR AQ1.rn <= 5
+        )
+        SELECT RT.rn, RT.pct, W.tsql_code
+        FROM RunningTotals AS RT
+          JOIN dbo.Workload AS W
+            ON W.cs = RT.cs
+        ORDER BY RT.rn;    
+    为每个查询签名返回一行
+    -- Isolate sig of top offenders and a sample query of each sig
+        WITH RunningTotals AS
+        (
+          SELECT AQ1.cs,
+            CAST(AQ1.total_duration / 1000000.
+              AS NUMERIC(12, 2)) AS total_s, 
+            CAST(SUM(AQ2.total_duration) / 1000000.
+              AS NUMERIC(12, 2)) AS running_total_s, 
+            CAST(AQ1.pct AS NUMERIC(12, 2)) AS pct, 
+            CAST(SUM(AQ2.pct) AS NUMERIC(12, 2)) AS run_pct, 
+            AQ1.rn
+          FROM #AggQueries AS AQ1
+            JOIN #AggQueries AS AQ2
+              ON AQ2.rn <= AQ1.rn
+          GROUP BY AQ1.cs, AQ1.total_duration, AQ1.pct, AQ1.rn
+          HAVING SUM(AQ2.pct) - AQ1.pct <= 80 -- percentage threshold
+        )
+        SELECT RT.rn, RT.pct, S.sig, S.tsql_code AS sample_query
+        FROM RunningTotals AS RT
+          CROSS APPLY
+            (SELECT TOP(1) tsql_code, dbo.RegexReplace(tsql_code,
+               N'([\s,(=<>!](?![^\]]+[\]]))(?:(?:(?:(?#    expression coming
+                )(?:([N])?('')(?:[^'']|'''')*(''))(?#      character
+                )|(?:0x[\da-fA-F]*)(?#                     binary
+                )|(?:[-+]?(?:(?:[\d]*\.[\d]*|[\d]+)(?#     precise number
+                )(?:[eE]?[\d]*)))(?#                       imprecise number
+                )|(?:[~]?[-+]?(?:[\d]+))(?#                integer
+                ))(?:[\s]?[\+\-\*\/\%\&\|\^][\s]?)?)+(?#   operators
+                ))',
+               N'$1$2$3#$4') AS sig
+             FROM dbo.Workload AS W
+             WHERE W.cs = RT.cs) AS S
+        ORDER BY RT.rn;
+        GO
+查询统计
+    找出数据库中具有最高持续时间的5个查询模式
+    -- Query Statistics
+        SELECT TOP (5)
+          MAX(query) AS sample_query,
+          SUM(execution_count) AS cnt,
+          SUM(total_worker_time) AS cpu,
+          SUM(total_physical_reads) AS reads,
+          SUM(total_logical_reads) AS logical_reads,
+          SUM(total_elapsed_time) AS duration
+        FROM (SELECT 
+                QS.*,
+                SUBSTRING(ST.text, (QS.statement_start_offset/2) + 1,
+                   ((CASE statement_end_offset 
+                      WHEN -1 THEN DATALENGTH(ST.text)
+                      ELSE QS.statement_end_offset END 
+                          - QS.statement_start_offset)/2) + 1
+                ) AS query
+              FROM sys.dm_exec_query_stats AS QS
+                CROSS APPLY sys.dm_exec_sql_text(QS.sql_handle) AS ST
+                CROSS APPLY sys.dm_exec_plan_attributes(QS.plan_handle) AS PA
+              WHERE PA.attribute = 'dbid'
+                AND PA.value = DB_ID('Performance')) AS D
+        GROUP BY query_hash
+        ORDER BY duration DESC;
+优化索引与查询.
+    查询计划缓存
+    -- Cached Query Execution Plans
+    ---------------------------------------------------------------------
+
+    -- sys.syscacheobjects
+        SELECT * FROM sys.syscacheobjects;
+
+        SELECT * FROM sys.dm_exec_cached_plans;
+        SELECT * FROM sys.dm_exec_plan_attributes(<plan_handle>);
+        SELECT * FROM sys.dm_exec_sql_text(<plan_handle>);
+        SELECT * FROM sys.dm_exec_cached_plan_dependent_objects(<plan_handle>);
+
+        SELECT * FROM sys.dm_exec_query_plan(<plan_handle>);
+        GO
+
+    清空缓存中的数据和执行计划
+    -- Clearing data from cache
+    DBCC DROPCLEANBUFFERS;
+
+    -- Clearing execution plans from cache
+    DBCC FREEPROCCACHE; -- ( plan_handle | sql_handle | pool_name )
+    GO
+    测量查询的运行时间
+    -- STATISTICS IO
+    ---------------------------------------------------------------------
+    -- First clear cache
+        DBCC DROPCLEANBUFFERS;
+
+    -- Then run
+        SET STATISTICS IO ON;
+
+        SELECT orderid, custid, empid, shipperid, orderdate, filler
+        FROM dbo.Orders
+        WHERE orderdate >= '20080101'
+          AND orderdate < '20080201';
+        GO
+
+        SET STATISTICS IO OFF;
+        GO
+分析执行计划

@@ -1,0 +1,3 @@
+cd C:\Windows\System32\inetsrv
+备份 appcmd add backup "iisbak_20170508"
+还原 appcmd restore backup "iisbak_20170508"

@@ -1,0 +1,3 @@
+"text/html"
+"application/json"
+"application/xml"

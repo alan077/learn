@@ -1,0 +1,34 @@
+Nmap基本功能：
+    探测一组主机是否在线，其次是扫描主机端口，嗅探所提供的网络服务，还可以推断主机所用的操作系统
+    Nmap----Script功能的使用，在/usr/share/nmap/scripts/目录下，已经有多种写好的脚本规则。
+    -A  全面扫描指定IP或域名的所有端口及目标系统信息
+    -C  指定扫描一个网段，也可以不使用-A选择。直接nmap 192.168.1.1-192.168.1.100
+    -sP Ping扫描
+    -P0 无Ping扫描
+    -PS TCP SYN Ping扫描
+    -PA TCP ACK Ping扫描
+    -PU UDP Ping扫描
+    -PE;-PP;-PM ICPM Ping Type扫描
+    -PR ARP Ping扫描
+    -n  禁止DNS反向解析
+    -R  反向解析域名
+    --system-dns 使用域名解析器
+    -sL 列表扫描
+    --traceroute    路由跟踪
+    -PY SCTP INIT Ping扫描
+    -T  时序选项
+    -p  端口扫描顺序
+    -sS TCP SYN扫描
+    -sT TCP连接扫描
+    -sU UDP连接扫描
+    -sN，sF，sX 隐蔽扫描
+    -sA TCP ACK扫描
+    -sW TCP窗口扫描
+    -sM TCP Maimon扫描
+    --scanflags 自定义TCP扫描
+    -sI 空闲扫描
+    -sO IP协议扫描
+    -b  FTP Bounce扫描
+    -sV 版本探测
+    -sR RPC扫描
+    -O  启用操作系统探测

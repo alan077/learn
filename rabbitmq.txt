@@ -1,0 +1,140 @@
+安装elang之前需要安装socat
+yum -y install socat
+
+rabbitmqctl status 检查rabbitmq状态
+复制配置文件
+cp -av /usr/share/doc/rabbitmq-server-3.6.9/rabbitmq.config.example /etc/rabbitmq/rabbitmq.config 
+开启远程访问
+去掉loopback_user {},前的 百分号
+#注意要去掉后面的逗号
+
+chkconfig rabbitmq-server on
+安装插件
+启动web管理界面
+    rabbitmq-plugins enable rabbitmq_management
+增加访问用户，默认用户guest只能本地访问。
+    rabbitmqctl add_user admin 123456
+设置角色：
+    rabbitmqctl set_user_tags admin administrator
+设置默认vhost（“/”）访问权限
+    rabbitmqctl set_permissions -p “/” admin “.*” “.*” “.*”
+    
+查看vhost(/)允许那些用户访问
+rabbitmqctl list_permissions -p /
+
+生产者创建消息并设置标签
+消息路由的三部分：交换器、队列和绑定
+生产者把消息发送到交换器上；消息最终到达队列，并被消费者接受；绑定决定了消息如何从路由器路由到特定的队列。
+消费者通过确认命令告诉RabbitMQ它已经正确地接收了消息，同时RabbitMQ才能安全地把消息从队列中删除
+
+交换器
+1、接收消息，转发消息到绑定的队列。四种类型：
+    direct：转发消息到routigKey指定的队列
+    topic：按规则转发消息（最灵活）
+    headers：（这个还没有接触到）
+    fanout：转发消息到所有绑定队列
+2、如果没有队列绑定在交换机上，则发送到该交换机上的消息会丢失
+3、一个交换机可以绑定多个队列，一个队列可以被多个交换机绑定
+4、topic类型交换器通过模式匹配分析消息的routing-key属性。它将routing-key和binding-key的字符串切分成单词。这些单词之间用点隔开。它同样也会识别两个通配符：#匹配0个或者多个单词，*匹配一个单词。例如，binding key：*.stock.#匹配routing key：usd.stcok和eur.stock.db，但是不匹配stock.nana。还有一些其他的交换器类型，如header、failover、system等，现在在当前的RabbitMQ版本中均未实现。
+5、因为交换器是命名实体，声明一个已经存在的交换器，但是试图赋予不同类型是会导致错误。客户端需要删除这个已经存在的交换器，然后重新声明并且赋予新的类型。
+6. 交换器的属性：
+    - 持久性：如果启用，交换器将会在server重启前都有效。
+    - 自动删除：如果启用，那么交换器将会在其绑定的队列都被删除掉之后自动删除掉自身。
+    - 惰性：如果没有声明交换器，那么在执行到使用的时候会导致异常，并不会主动声明。
+队列
+    1、队列是RabbitMQ内部对象，存储消息。相同属性的queue可以重复定义
+    2、临时队列。channel.queueDeclare()，有时不需要指定队列的名字，并希望断开连接时删除队列。
+    3、队列的属性
+        - 持久性：如果启用，队列将会在server重启前都有效。
+        - 自动删除：如果启用，那么队列将会在所有的消费者停止使用之后自动删除掉自身。
+        - 惰性：如果没有声明队列，那么在执行到使用的时候会导致异常，并不会主动声明。
+        - 排他性：如果启用，队列只能被声明它的消费者使用。
+消息传递：
+    1、消息在队列中保存，以轮询的方式将消息发送给监听消息队列的消费者，可以动态的增加消费者以提高消息的处理能力
+    2、为了实现负载均衡，可以在消费者端通知RabbitMQ，一个消息处理完之后才会接受下一个消息
+        注意：要防止如果所有的消费者都在处理中，则队列中的消息会累积的情况。
+    3、消息有14个属性，最常用的几种
+        deliveryMode：持久化属性
+        contentType：编码
+        replyTo：指定一个回调队列
+        correlationId：消息ID
+    4、消息生产者可以选择是否在消息被发生到交换器并且还未投递到队列(没有绑定器存在)和/或没有消费者能够独立立即处理的时候得到通知。通过设置消息的mandatory和.或immediate属性为真，这些投递保障机制的能力得到了强化
+    5、此外，一个生产者可以设置消息的persistent属性为真，这样一来，server将会尝试将这些消息存储在一个稳定的位置，直到server奔溃。当然，这些消息肯定不会被投递到飞持久的队列中.
+高可用：
+    1、消息ACK，通知RabbitMQ消息已被出来，可以从内存删除。如果消费者因为宕机或链接失败等原因没有发生ACK，则RabbitMQ会将消息重新发生给其他监听在队列的下一个消费者
+    2、消息和队列的持久化。定义队列可以指定队列的持久化属性
+        发生消息时可以指定消息持久化属性，这样即使RabbitMQ服务器重启，也不会丢失队列和消息
+    3、publisher confirms
+集群：
+    1、不支持跨网段（如需支持，需要shovel或federation插件）
+    2、可以随意的动态增加或减少、启动或停止节点，允许节点故障
+    3、集群分为RAM节点和DISK节点，一个集群最好至少有一个DISK节点保存集群的状态
+    4、集群的配置可以通过命令，也可以通过配置文件
+
+RabbitMQ服务管理
+    RabbitMQ访问由Erlang语言编写，一个RabbitMQ服务器实例是由Erlang节点和运行在其上的Rabbit程序构成，一个Erlang节点上可以同时运行多个RabbitMQ程序，它们彼此之间可以通讯，不论它们是否在同一个服务器上，这也算Erlang程序的特点所在。
+    启动RabbitMQ
+        rabbitmq-server -detached
+    关闭节点
+        rabbitmqctl stop        停止了rabbitmq也停止了Erlang
+        rabbitmqctl stop_app    只停止了rabbitmq但没有停止Erlang
+用户管理
+用户管理包括增加用户，删除用户，查看用户列表，修改用户密码。
+用户管理的命令
+    (1) 新增一个用户
+        rabbitmqctl  add_user  Username  Password
+    (2) 删除一个用户
+        rabbitmqctl  delete_user  Username
+        当删除用户时，任何引用该用户访问权限的条目都会从Rabbit权限数据库中自动删除，有点类似关联删除。同时Rabbit并不会提醒你与用户相关的控制条目都被删除了，所有删除用户时需要谨慎
+    (3) 修改用户的密码
+        rabbitmqctl  change_password  Username  Newpassword
+    (4) 查看当前用户列表
+        rabbitmqctl  list_users
+用户权限命令
+    在1.6.0之前，用户只能对整个Vhost进行授权或拒绝访问，对应已经授权的用户可以做任何事情；而在这之后，RabbitMQ的权限系统做了较大改进，形成ACL风格的权限系统，它允许了大量细颗粒度的控制，同时赋予用户读、写及配置权限。需要注意的是，访问控制权限无法跨越vhost进行
+    比如：想要给用户admin在vhostA和vhostB中赋予相同的权限，那么久必须创建两个控制目录（每个vhost一份）
+        rabbitmqctl set_permissions  -p  / admin  “.*”  “.*” “.*”
+    NOTE：
+        -p  /：代表set_permissions控制条目应该应用到哪个vhost上；
+        admin:代表被授权的用户名字；
+        “.*” “.*”  “.*”：分别代表配置、读和写权限，而其中的”.*”为正则表达式，代表匹配所有权限；
+    删除权限
+        rabbitmqctl  clear_permissions –p admin
+    查看权限
+        rabbitmqctl list_permissions
+        rabbitmqctl list_user_permissions admin 查看特定用户的权限
+添加用户角色
+    为用户添加权限，已经基本可以满足我们的需求了，但有时，我们可以使用系统预置的角色，为用户赋予角色，那么该用户也就拥有了该角色所赋予的所有权限了，在RabbitMQ中，橘色大致分为超级管理员,监控者,策略制定者, 普通管理者以及其他
+    (1) 超级管理员(administrator)
+        可登陆管理控制台(启用managementplugin的情况下)，可查看所有的信息，并且可以对用户，策略(policy)进行操作。   
+    (2) 监控者(monitoring)
+        可登陆管理控制台(启用managementplugin的情况下)，同时可以查看rabbitmq节点的相关信息(进程数，内存使用情况，磁盘使用情况等)
+    (3) 策略制定者(policymaker)
+        可登陆管理控制台(启用managementplugin的情况下),同时可以对policy进行管理。但无法查看节点的相关信息(上图红框标识的部分)。
+    (4) 普通管理者(management)
+        仅可登陆管理控制台(启用managementplugin的情况下)，无法看到节点信息，也无法对策略进行管理。
+    (5) 其他
+        无法登陆管理控制台，通常就是普通的生产者和消费者。
+    abbitmqctl set_user_tags admin administrator
+服务使用统计
+    我们使用了-p选项，旨在指定虚拟主机或路径信息，如果不添加该选项，那么rabbitmqctl会将”/”作为默认的路径访问。
+    rabbitmqctl list_queues
+RabbitMQ集群
+    镜像模式:把需要的队列做成镜像队列，存在与多个节点属于RabbitMQ的HA方案。该模式解决了普通模式中的问题，其实质和普通模式不同之处在于，消息实体会主动在镜像节点间同步，而不是在客户端取数据时临时拉取。该模式带来的副作用也很明显，除了降低系统性能外，如果镜像队列数量过多，加之大量的消息进入，集群内部的网络带宽将会被这种同步通讯大大消耗掉。所以在对可靠性要求较高的场合中适用
+    节点类型
+        RAM node:内存节点将所有的队列、交换机、绑定、用户、权限和vhost的元数据定义存储在内存中，好处是可以使得像交换机和队列声明等操作更加的快速。
+        Disk node:将元数据存储在磁盘中，单节点系统只允许磁盘类型的节点，防止重启RabbitMQ的时候，丢失系统的配置信息
+    RabbitMQ要求在集群中至少有一个磁盘节点，所有其他节点可以是内存节点，当节点加入或者离开集群时，必须要将该变更通知到至少一个磁盘节点。如果集群中唯一的一个磁盘节点崩溃的话，集群仍然可以保持运行，但是无法进行其他操作（增删改查），直到节点恢复。 
+        解决方案：设置两个磁盘节点，至少有一个是可用的，可以保存元数据的更改。
+    部署步骤
+        1、修改hosts文件，使得集群中每个主机都能使用主机名ping通。最好在安装rabbitmq之前安修改主机名
+        2、修改/var/lib/rabbitmq/.erlang.cookie，使每台主机的cookie相同。并使用chmod 600 .erlang.cookie修改权限
+        3、停止RabbitMQ rabbitmqctl stop_app，并加入集群 rabbitmqctl join_cluster --ram rabbit@G
+        4、开启RabbitMQ rabbitmqctl start_app，查看集群状态rabbitmqctl cluster_status
+        转换rabbitmq节点类型
+        rabbitmqctl change_cluster_node_type disc
+    镜像模式要依赖policy模块
+        rabbitmqctl set_policy ha-all "^" '{"ha-mode":"all"}'
+            ha-all：为策略名称。
+            ^：为匹配符，只有一个^代表匹配所有，^zlh为匹配名称为zlh的exchanges或者queue。
+            ha-mode：为匹配类型，他分为3种模式：all-所有（所有的queue），exctly-部分（需配置ha-params参数，此参数为int类型比如3，众多集群中的随机3台机器），nodes-指定（需配置ha-params参数，此参数为数组类型比如["3rabbit@F","rabbit@G"]这样指定为F与G这2台机器。）。

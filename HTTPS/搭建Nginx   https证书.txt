@@ -1,0 +1,17 @@
+制作CA证书
+ca.key CA私钥
+openssl genrsa -des3 -out ca.key 2048  
+ca.crt CA公钥
+openssl req -new -x509 -days 3650 -key ca.key -out ca.crt
+制作网站的证书并用CA签名进行认证
+openssl genrsa -des3 -out *.zerost1.com.pem 1024  
+制作生成解密后的证书密钥
+openssl rsa -in *.zerost1.com.pem -out zerost1.com.key  
+生成请求签名
+openssl req -new -key *.zerost1.com.pem -out zerost1.com.csr
+CA进行签名
+openssl ca -policy policy_anything -days 3650 -cert ca.crt -keyfile ca.key -in zerost1.com.csr -out zerost1.com.crt 
+
+如果报错删除index.txt文件，再生成
+rm /etc/pki/CA/index.txt
+touch /etc/pki/CA/index.txt

@@ -1,0 +1,27 @@
+mkdir -p /etc/redis && mkdir -p /data/redis && wget http://download.redis.io/releases/redis-3.2.8.tar.gz && tar -xvf redis-3.2.8.tar.gz && cd redis-3.2.8 && make &&make install
+
+
+
+上传redis配置文件和启动脚本/etc/redis目录下
+mv /etc/redis/redis /etc/init.d/
+chmod +x /etc/init.d/redis
+chkconfig --add redis
+chkconfig redis on
+/etc/init.d/redis start
+
+Redis 同步命令
+slaveof 192.168.1.250 6379
+slaveof 192.168.1.249 6379
+
+
+BGSAVE
+
+查看主从状态
+INFO replication
+将从服务器设置为主服务并取消复制
+SLAVEOF ON ONE
+设置主从命令
+slaveof 172.19.4.100 6379
+
+
+UUID=7a680213-6bb9-4570-bc4b-fd76a0061477

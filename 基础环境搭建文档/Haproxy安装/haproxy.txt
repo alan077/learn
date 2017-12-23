@@ -1,0 +1,5 @@
+yum -y install haproxy
+
+chkconfig haproxy on
+
+/etc/init.d/haproxy start

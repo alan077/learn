@@ -1,0 +1,14 @@
+CREATE TABLE dbo.HeapTest ( id INT, col1 VARCHAR(800) )
+
+DECLARE @index INT
+SET @index = 0
+BEGIN TRAN
+WHILE @index < 100000 
+    BEGIN 
+        INSERT  INTO dbo.HeapTest
+                ( id, col1 )
+        VALUES  ( @index, NULL )
+        SET @index = @index + 1
+
+    END
+COMMIT

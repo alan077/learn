@@ -1,0 +1,23 @@
+Zabbix 适合中小型企业、大中型企业的用户使用。单个Server节点可以支持上万台设备，每秒可以处理1.5W次请求，理论上可支持5W台设备
+Zabbix-Server的数据库大小取决于NVPS，NVPS从总体上反映了处理速度，与监控项的数码、监控的类型、取值间隔、History的保留时间和Trends的保留时间有直接关系
+NPVS值是每秒处理的平均数量，假设有60000个监控项，刷新周期为60秒，那么每秒需要处理的数据库为60000/60=1000（条），表示此时每秒将会向数据库中新增1000条数据，这些数据根据设置的历史存储时间保存
+历史数据大小=天数*每秒处理的数据*24小时*3600S*50Bytes
+趋势数据大小=监控项目*24小时*365*128B
+事件数据大小=1年*365天*24小时*3600秒*130字节大概为4.1G空间.
+
+修改mysql配置文件
+character-set-server=utf8
+innodb_file_per_table=1
+
+客户端配置
+Server：被动模式，允许那台服务器连接Angent
+ServerActive：主动模式，向那台服务器传送数据
+
+zabbix-get命令：用于zabbix-server到zabbix-agnet的数据获取，通常可以用来检测验证Agent的配置是否正确
+-h：远程zabbix-agnet的IP地址或者是主机名
+-p：远程zabbix-agent的端口
+-I：本机出去的IP地址，用于一台机器中有多个网卡的情况
+-k：获取远程zabbix-agent数据所使用的Key
+
+zabbix图形插件zatree
+https://github.com/BillWang139967/zatree/tree/master/zabbix-3.0.x
