@@ -1,0 +1,83 @@
+# Copyright (c) 1993-2009 Microsoft Corp.
+#
+# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.
+#
+# This file contains the mappings of IP addresses to host names. Each
+# entry should be kept on an individual line. The IP address should
+# be placed in the first column followed by the corresponding host name.
+# The IP address and the host name should be separated by at least one
+# space.
+#
+# Additionally, comments (such as these) may be inserted on individual
+# lines or following the machine name denoted by a '#' symbol.
+#
+# For example:
+#
+#      102.54.94.97     rhino.acme.com          # source server
+#       38.25.63.10     x.acme.com              # x client host
+
+# localhost name resolution is handled within DNS itself.
+#	127.0.0.1       localhost
+#	::1             localhost
+
+192.168.1.24  merchantwcf.erp.lingcb.net
+192.168.1.24 stockingwcf.erp.lingcb.net
+
+
+192.168.1.24 companyapi.erp.lingcb.net
+192.168.1.24 companyui.erp.lingcb.net
+192.168.1.24 saas.lingcb.net
+192.168.1.24 passportapi.lingcb.net
+192.168.1.24 yxmarketingwcf.lingcb.net
+
+192.168.1.29  saas.lingcb1.com 
+192.168.1.29  passport.lingcb1.com 
+192.168.1.29  passportapi.lingcb1.com 
+
+192.168.1.29  companyapi.erp.lingcb1.com 
+192.168.1.29  companyui.erp.lingcb1.com 
+
+192.168.1.29  document.erp.lingcb1.com 
+
+192.168.1.29  merchantwcf.erp.lingcb1.com 
+
+192.168.1.29  settingapi.erp.lingcb1.com 
+192.168.1.29  settingui.erp.lingcb1.com 
+
+192.168.1.29  stockingwcf.erp.lingcb1.com 
+
+192.168.1.29  storeapi.erp.lingcb1.com 
+192.168.1.29  storeui.erp.lingcb1.com 
+
+192.168.1.29  wxstoreapi.erp.lingcb1.com 
+192.168.1.29  wxstoreui.erp.lingcb1.com 
+
+192.168.1.29  printingapi.erp.lingcb1.com
+192.168.1.29  printingui.erp.lingcb1.com
+
+192.168.1.29  storeui.per.lingcb1.com
+192.168.1.29  performancewcf.per.lingcb1.com
+192.168.1.29  storeapi.per.lingcb1.com
+192.168.1.29  wxstoreapi.per.lingcb1.com
+192.168.1.29  wxstoreui.per.lingcb1.com
+
+192.168.1.29  stationui.msg.lingcb1.com
+192.168.1.29  storeui.msg.lingcb1.com
+
+
+192.168.1.29  temp.lingcb1.com
+192.168.1.29  image.lingcb1.com
+192.168.1.29  file.lingcb1.com
+
+
+192.168.1.29 cloudmemberwcf.lingcb1.com
+192.168.1.29 yxsso.lingcb1.com
+192.168.1.29 yxstation.lingcb1.com
+192.168.1.29 cloudcomponentwcf.lingcb1.com
+192.168.1.29 cloudpaymentwcf.lingcb1.com
+192.168.1.29 cloudcomponentapi.lingcb1.com
+192.168.1.29 yxmarketingwcf.lingcb1.com
+192.168.1.29 yxstore.lingcb1.com
+#223.5.5.5
+
+0.0.0.1	mssplus.mcafee.com
