@@ -1,0 +1,59 @@
+yum install -y cmake,make,gcc,gcc-c++,bison, ncurses,ncurses-devel
+wget https://sourceforge.net/projects/boost/files/boost/1.59.0/boost_1_59_0.tar.gz
+
+tar -zxvf boost_1_59_0.tar.gz -C /usr/local/
+
+cd mysql-5.7.19
+
+cmake . -DCMAKE_INSTALL_PREFIX=/usr/local/mysql -DDOWNLOAD_BOOST=1 -DWITH_BOOST=/usr/local/boost_1_59_0
+
+
+make &&make install
+ 
+useradd -r mysql 
+
+cd /usr/local/mysql
+chown -R mysql:mysql .
+
+5.7.6之前使用该脚本进行初始化操作
+./bin/mysql_install_db --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data
+
+5.7.6之后版本使用如下操作进行初始化操作
+
+./bin/mysqld --initialize-insecure --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data
+./bin/mysql_ssl_rsa_setup
+
+touch usr/local/mysql/mysql.pid
+mkdir temp
+chown -R root .
+chown -R mysql data
+chown -R mysql temp/
+
+cp support-files/my-default.cnf /etc/my.cnf
+cp support-files/mysql.server /etc/init.d/mysqld
+chkconfig --add mysqld
+chkconfig mysqld on
+
+
+service mysqld start
+service mysqld stop 
+service mysqld restart
+
+设置数据库密码
+
+/usr/local/mysql/bin/mysql -e "grant all privileges on *.* to root@'127.0.0.1' identified by "120110" with grant option;"
+/usr/local/mysql/bin/mysql -e "grant all privileges on *.* to root@'localhost' identified by "120110" with grant option;"
+/usr/local/mysql/bin/mysql -e "grant all privileges on *.* to root@'%' identified by "120110" with grant option;"
+
+
+
+vim /etc/profile
+echo "export PATH=/usr/local/mysql/bin:$PATH” >>/etc/profile
+source /etc/profile
+
+
+
+编译失败操作 
+rm -f CMakeCache.txt
+make clean
+ 

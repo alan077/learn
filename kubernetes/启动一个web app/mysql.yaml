@@ -1,0 +1,48 @@
+apiVersion: extensions/v1beta1
+RC形式部署MySQL
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+    app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: msyql
+        image: mysql
+        ports:
+        - containerProt: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "123456"
+          
+Deployment形式部署MySQL    
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: msyql
+        image: mysql
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "123456"

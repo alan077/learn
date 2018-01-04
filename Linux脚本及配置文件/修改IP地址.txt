@@ -1,0 +1,64 @@
+sed -i 's/BOOTPROTP=dhcp/BOOTPROTO=static/g' /etc/sysconfig/network-scripts/ifcfg-eth0
+sed -i 's/ONBOOT=no/ONBOOT=yes/g' /etc/sysconfig/network-scripts/ifcfg-eth0
+echo -e "IPADDR=192.168.1.41" >>/etc/sysconfig/network-scripts/ifcfg-eth0
+echo -e "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth0
+echo -e "GATEWAY=192.168.1.1" >>/etc/sysconfig/network-scripts/ifcfg-eth0
+echo -e "DNS1=223.5.5.5" >>/etc/sysconfig/network-scripts/ifcfg-eth0
+
+
+/etc/init.d/network restart
+
+
+sed -i 's/dhcp/static/g' /etc/sysconfig/network-scripts/ifcfg-eth1
+sed -i 's/ONBOOT=no/ONBOOT=yes/g' /etc/sysconfig/network-scripts/ifcfg-eth1
+echo -e "IPADDR=192.168.0.210" >>/etc/sysconfig/network-scripts/ifcfg-eth1
+echo -e "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth1
+
+
+sed -i 's/dhcp/static/g' /etc/sysconfig/network-scripts/ifcfg-eth2
+sed -i 's/ONBOOT=no/ONBOOT=yes/g' /etc/sysconfig/network-scripts/ifcfg-eth2
+echo -e "IPADDR=172.19.1.10" >>/etc/sysconfig/network-scripts/ifcfg-eth2
+echo -e "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth2
+
+
+
+echo -e  "DEVICE=eth3" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+echo -e  "TYPE=Ethernet" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+echo -e  "ONBOOT=yes" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+echo -e  "BOOTPROTO=static" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+echo -e  "IPADDR=172.19.2.10" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+echo -e  "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+
+
+echo -e  "DEVICE=eth4" >>/etc/sysconfig/network-scripts/ifcfg-eth4
+echo -e  "TYPE=Ethernet" >>/etc/sysconfig/network-scripts/ifcfg-eth4
+echo -e  "ONBOOT=yes" >>/etc/sysconfig/network-scripts/ifcfg-eth4
+echo -e  "BOOTPROTO=static" >>/etc/sysconfig/network-scripts/ifcfg-eth4
+echo -e  "IPADDR=172.19.3.10" >>/etc/sysconfig/network-scripts/ifcfg-eth4
+echo -e  "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth4
+
+
+
+
+echo -e  "DEVICE=eth5" >>/etc/sysconfig/network-scripts/ifcfg-eth5
+echo -e  "TYPE=Ethernet" >>/etc/sysconfig/network-scripts/ifcfg-eth5
+echo -e  "ONBOOT=yes" >>/etc/sysconfig/network-scripts/ifcfg-eth5
+echo -e  "BOOTPROTO=static" >>/etc/sysconfig/network-scripts/ifcfg-eth5
+echo -e  "IPADDR=172.19.4.10" >>/etc/sysconfig/network-scripts/ifcfg-eth5
+echo -e  "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth5
+
+
+echo -e  "DEVICE=eth3" >>/etc/sysconfig/network-scripts/ifcfg-eth6
+echo -e  "TYPE=Ethernet" >>/etc/sysconfig/network-scripts/ifcfg-eth6
+echo -e  "ONBOOT=yes" >>/etc/sysconfig/network-scripts/ifcfg-eth3
+echo -e  "BOOTPROTO=static" >>/etc/sysconfig/network-scripts/ifcfg-eth6
+echo -e  "IPADDR=172.19.2.10" >>/etc/sysconfig/network-scripts/ifcfg-eth6
+echo -e  "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth6
+
+
+echo -e  "DEVICE=eth3" >>/etc/sysconfig/network-scripts/ifcfg-eth7
+echo -e  "TYPE=Ethernet" >>/etc/sysconfig/network-scripts/ifcfg-eth7
+echo -e  "ONBOOT=yes" >>/etc/sysconfig/network-scripts/ifcfg-eth7
+echo -e  "BOOTPROTO=static" >>/etc/sysconfig/network-scripts/ifcfg-eth7
+echo -e  "IPADDR=172.19.2.10" >>/etc/sysconfig/network-scripts/ifcfg-eth7
+echo -e  "NETMASK=255.255.255.0" >>/etc/sysconfig/network-scripts/ifcfg-eth7

@@ -1,0 +1,71 @@
+ssh-keygen -t rsa
+
+
+ssh-keygen -t rsa -b 2048
+cat ~/.ssh/id_rsa.pub > ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+for ip in $(awk '{print $1}' install.config );do rsync -a ~/.ssh/authorized_keys root@$ip:/root/ .ssh ;done
+
+
+$ ssh-keygen -t rsa -b 2048 #有确认提示，一直按回车即可
+
+$ cat ~/.ssh/id_rsa.pub > ~/.ssh/authorized_keys
+$ chmod 600 ~/.ssh/authorized_keys
+$ for ip in $(awk '{print $1}' install.config );do rsync -a ~/.ssh/authorized_keys root@$ip:/root/ .ssh ;done
+
+ssh-copy-id -i ~/.ssh/id_rsa.pub node01
+ssh-copy-id -i ~/.ssh/id_rsa.pub node02
+ssh-copy-id -i ~/.ssh/id_rsa.pub node03
+
+
+
+
+systemctl stop firewalld
+systemctl disable firewalld
+wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+systemctl stop firewalld
+systemctl disable firewalld
+sed -i 's/SELINUX=enforcing/SELINUX=disablesd/g' /etc/selinux/config
+sed -i 's/#MaxAuthTries/MaxAuthTries/g' /etc/ssh/sshd_config
+sed -i 's/#UseDNS/UseDNS/g' /etc/ssh/sshd_config
+sed -i 's/#ClientAliveInterval/ClientAliveInterval/g' /etc/ssh/sshd_config
+sed -i 's/#ClientAliveCountMax/ClientAliveCountMax/g' /etc/ssh/sshd_config
+echo -e 'root soft nofile 65535' >> /etc/security/limits.conf
+echo -e 'root hard nofile 65535' >> /etc/security/limits.conf
+echo -e '* soft nofile 65535' >> /etc/security/limits.conf
+echo -e '* hard nofile 65535' >> /etc/security/limits.conf
+echo -e "# see details in https://help.aliyun.com/knowledge_detail/39428.html" >> /etc/sysctl.conf
+echo -e "net.ipv4.conf.all.rp_filter=0" >> /etc/sysctl.conf
+echo -e "net.ipv4.conf.default.rp_filter=0" >> /etc/sysctl.conf
+echo -e "net.ipv4.conf.default.arp_announce = 2" >> /etc/sysctl.conf
+echo -e "net.ipv4.conf.lo.arp_announce=2" >> /etc/sysctl.conf
+echo -e "net.ipv4.conf.all.arp_announce=2" >> /etc/sysctl.conf
+echo -e "# see details in https://help.aliyun.com/knowledge_detail/41334.html" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_max_tw_buckets = 5000" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_syncookies = 1" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_max_syn_backlog = 1024" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_synack_retries = 2" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_tw_reuse = 1" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_tw_recycle = 1" >> /etc/sysctl.conf
+echo -e "net.ipv4.tcp_fin_timeout = 30" >> /etc/sysctl.conf
+sysctl -p
+yum -y install vim wget ntp gcc gcc-c++
+yum -y install epel*
+yum -y groupinstall "Development Tools"
+
+ntpdate cn.pool.ntp.org && hwclock -w && echo -e '* * * * * /usr/sbin/ntpdate cn.pool.ntp.org && hwclock -w &> /dev/null' >>/var/spool/cron/root
+reboot
+wget http://bkopen-10032816.file.myqcloud.com/grayscale_test/install_ce-1.0.15.tgz
+wget http://bkopen-10032816.file.myqcloud.com/grayscale_test/bkce_src-3.1.7.tgz
+
+
+
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+127.0.0.1 Node01
+192.168.1.40 Node01
+192.168.1.41 Node02
+192.168.1.42 Node03
+192.168.1.41   paas.blueking.com
+192.168.1.41   jobs.blueking.com
+192.168.1.41   cmdb.blueking.com

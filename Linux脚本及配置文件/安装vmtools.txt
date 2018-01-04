@@ -1,0 +1,1 @@
+mount -t iso9660 /dev/cdrom /mnt && cp /mnt/VMwareTools-10.0.6-3560309.tar.gz /tmp &&cd /tmp && tar zxf VMwareTools-10.0.6-3560309.tar.gz && cd vmware-tools-distrib && ./vmware-install.pl

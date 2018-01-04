@@ -1,0 +1,8 @@
+Ceph核心组件
+    Ceph OSD、Ceph Monitor和Ceph MDS
+    一个Ceph的存储集群至少需要一个Ceph Monitor和至少两个Ceph的OSD。运行Ceph文件系统的客户端时，Ceph的元数据服务器(MDS)是必不可少的。
+Ceph OSD：全称是Object Storage Device，主要功能包括存储数据，处理数据的复制、恢复、回补、平衡数据分布，并将一些相关数据提供给Ceph Monitor，例如Ceph OSD心跳等。一个Ceph的存储集群，至少需要两个Ceph OSD来实现active+clean健康状态和有效的保存数据的双副本(默认情况下是双副本，可以调整)。
+    注意：每个Disk、分区都可以成为一个OSD
+Ceph Monotor：Ceph的监控器，主要功能是维护整个集群健康状态，提供一致性的决策，包含了Monitor map、OSD map、PG(Placement Group) map和CRUSH map
+Ceph MDS：全称是Ceph Metadata Server，主要保存的是Ceph文件系统(File System)的元数据(metadata)。
+    注意：Ceph的块存储和Ceph的对象存储都不需要Ceph MDS。Ceph MDS为基于POSIX文件系统的用户提供了一些基础黎明，例如ls、find等命令

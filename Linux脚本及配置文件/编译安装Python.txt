@@ -1,0 +1,21 @@
+ 
+ yum -y install zlib-devel
+ wget https://www.python.org/ftp/python/3.6.1/Python-3.6.1.tar.xz
+ 
+ tar -xvf Python-3.6.1.tar.xz && cd Python-3.6.1
+ 
+ ./configure
+  make -j 4
+  make install
+  
+  ln -s /usr/local/python/bin/pip3 /usr/bin/
+  ln -s /usr/local/python/bin/python3 /usr/bin/
+  
+  
+  yum install freetds-devel.x86_64 
+  pip3 install pymssql
+  pip3 install ipython
+  ln -s /usr/local/python/bin/ipython /usr/bin/
+
+  
+  */1 * * * * /usr/local/bin/python3 /tmp/v3.py  >> /var/log/python.log 2>&1
