@@ -1,1 +1,0 @@
-awk -F ':' '{print $2}' haproxy.log-20170910|awk -F ',' '{print $1}'|sort|uniq -c|sort -rn|wc -l

@@ -1,0 +1,5 @@
+msdeploy -verb:sync -source:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.100 -dest:apphostconfig="yxmonitor.lingcb.com",computername=172.19.1.100,userName=administrator,password=jinxin@123.com  > E:\YXSyncLog\File01.log
+msdeploy -verb:sync -source:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.100 -dest:apphostconfig="yxmonitor.lingcb.com",computername=172.19.1.101,userName=administrator,password=jinxin@123.com  > E:\YXSyncLog\File02.log
+msdeploy -verb:sync -source:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.100 -dest:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.101,userName=administrator,password=jinxin@123.com  > E:\YXSyncLog\Web02.log
+msdeploy -verb:sync -source:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.100 -dest:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.102,userName=administrator,password=jinxin@123.com  > E:\YXSyncLog\Web03.log
+msdeploy -verb:sync -source:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.100 -dest:apphostconfig="yxmonitor.lingcb.com",computername=172.19.2.200,userName=administrator,password=jinxin@123.com  > E:\YXSyncLog\Web04.log

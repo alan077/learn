@@ -1,0 +1,27 @@
+chattr +ia /etc/passwd
+
+chattr +ia /etc/shadow
+
+chattr +ia /etc/group
+
+chattr +ia /etc/gshadow
+
+chattr +ia /etc/services 
+
+
+添加用户时使用如下命令
+chattr -ia /etc/passwd
+
+chattr -ia /etc/shadow
+
+chattr -ia /etc/group
+
+chattr -ia /etc/gshadow
+
+chattr -ia /etc/services
+
+
+
+sed -i 's/^HISTSIZE=1000/HISTSIZE=200/' /etc/profile
+source /etc/profile   
+//使其立即生效

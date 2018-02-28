@@ -1,0 +1,46 @@
+删除规则
+iptables -F
+设置默认chain策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+拦截某个IP
+iptables -A INPUT -i eth0 -p tcp -s 192.168.100.10 -j DROP
+放行服务
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A OUTPUT -p udp -o eth0 --dport 53 -j ACCEPT
+iptables -A INPUT -p udp -i eth0 --sport 53 -j ACCEPT
+
+iptables -A INPUT -i eth0 -p tcp -s 192.168.100.0/24 --dport 22 -m state --state NEW,ESTABLESHED -j ACCEPT
+iptables -A OUTPUT -o eth0 -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT
+
+iptables -A INPUT -i eth0 -p tcp -s 192.168.100.0/24 --dport 22 -m state --state ESTABLESHED -j ACCEPT
+iptables -A OUTPUT -o eth0 -p tcp --sport 22 -m state --state NEW,ESTABLISHED -j ACCEPT
+路由转发
+iptables -A FORWARD -i eth0 -o eth1 -j ACCEPT
+端口转发
+iptables -t nat -A PREROUTING -p tcp -d 192.168.102.37 --dport 422 -j DNAT --to 192.168.102.37:22
+安全防护
+利用扩展模块limit，我们还可以配置iptables规则，实现DoS攻击防范：
+iptables -A INPUT -p tcp --dport 80 -m limit --limit 25/minute --limit-burst 100 -j ACCEPT
+--litmit 25/minute 指示每分钟限制最大连接数为25
+--litmit-burst 100 指示当总连接数超过100时，启动 litmit/minute 限制
+
+将丢弃包情况记入日志
+iptables -N LOGGING
+iptables -A INPUT -j LOGGING
+iptables -A LOGGING -m limit --limit 2/min -j LOG --log-prefix "IPTables Packet Dropped: " --log-level 7
+iptables -A LOGGING -j DROP
+
+NAT
+SNAT：源地址转换（代理内部客户端访问外部网络）在POSTROUTING或OUTPUT链上来做规则限制
+参数选项：
+    -j SNAT --to-source IP
+    -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 192.168.100.0/24 -j SNAT --to-source 192.168.1.143
+当外网IP不固定时
+iptables -t nat -A POSTROUTING -s 192.168.100.0/24 -j MASQUERADE
+DNAT ：目标地址转换（将内部服务器公开至外部网络）需在PREROUTING做限制
+参数选项：
+   -j DNAT --to-destination IP:prot
+iptables -t nat -A PREROUTING -d 10.0.10.62 -p tcp --dport 80 -j DNAT --to-destination 192.168.0.110
