@@ -1,0 +1,42 @@
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 80 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 81 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 443 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 3306 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 5601 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 9000 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 9200 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 9300 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 9200 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 10050 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 10051 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -p tcp -m tcp --dport 33333 -j ACCEPT
+iptables  -A INPUT -s 127.0.0.1 -j ACCEPT
+iptables  -A INPUT -p udp -m udp --dport 1194 -m comment --comment "openvpn" -j ACCEPT 
+iptables  -A INPUT -p tcp -m state --state NEW -j DROP 
+iptables  -A INPUT -p tcp -m state --state RELATED,ESTABLISHED -j ACCEPT 
+iptables -t nat -A POSTROUTING -s 172.19.0.0/16 -j SNAT --to-source 172.19.1.251
+iptables -t nat -A POSTROUTING -s 172.19.10.0/24 -j MASQUERADE
+
+
+iptables  -A INPUT -s 127.0.0.1 -j ACCEPT
+iptables  -A INPUT -p udp -m udp --dport 11111 -m comment --comment "openvpn" -j ACCEPT 
+iptables  -A INPUT -p tcp -m state --state NEW -j DROP 
+iptables  -A INPUT -p tcp -m state --state RELATED,ESTABLISHED -j ACCEPT 
+iptables -t nat -A POSTROUTING -s 172.19.0.0/16 -j SNAT --to-source 172.19.1.251
+iptables -t nat -A POSTROUTING -s 172.19.10.0/24 -j MASQUERADE
+
+
+
+iptables  -A INPUT -s 127.0.0.1 -j ACCEPT
+iptables  -A INPUT -s 172.19.0.0/16 -j ACCEPT
+iptables  -A INPUT -p tcp -m state --state NEW -j DROP 
+iptables  -A INPUT -p tcp -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables  -I INPUT -s 0.0.0.0/0 -p tcp -m tcp --dport 33333 -j ACCEPT
+iptables  -I INPUT -p tcp -m tcp --dport 80 -m comment --comment "http" -j ACCEPT 
+
+
+iptables  -D INPUT -s 0.0.0.0/0 -p tcp -m tcp --dport 33333 -j ACCEPT
+/etc/init.d/iptables save
+iptables -L -n
+
+iptables  -I INPUT -p tcp -m tcp --dport 6379 -m comment --comment "Redis" -j ACCEPT 
